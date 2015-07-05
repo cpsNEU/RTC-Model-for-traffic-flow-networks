@@ -1,0 +1,77 @@
+function [finalFlow_out] = calcuOutFlow(inFlowNEWS,turnRateNEWS)
+%inFlowNEWS: 一个路口四个方向的车流曲线；
+%turnRateNEWS： 一个路口四个方向的转向率；
+%方框中是路口资源相关定义
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+beta_in = rtcfs(1);        %%%
+ed = 1;                    %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+decomposedFlow = cell(4);  %4个方向分解后的流存入decomposedFlow中，方向顺序：NEWS；分流顺序：SRL（直行，右转，左转）；
+for i = 1:4
+    decomposedFlow{i} = decomposeFlow(inFlowNEWS{i},turnRateNEWS{i});    %disp(decomposedFlow{i});
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%下面对资源进行分流：
+betaNS_in = rtctimes(beta_in,0.5);
+betaWE_in = rtctimes(beta_in,0.5);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+outFlowDirTurn = cell(4,3); % 存储各路口每个方向上分解的车流流出去的量；
+%先求右转消耗的资源，以及右转通过的车流；
+for i = 1:4
+    if i==1 
+        [outFlowDirTurn{i,2},betaNS_out3] = rtcgpc(decomposedFlow{i}{2},betaNS_in,ed);
+    elseif i == 4
+        [outFlowDirTurn{i,2},betaNS_out4] = rtcgpc(decomposedFlow{i}{2},betaNS_in,ed);
+    elseif i == 2
+        [outFlowDirTurn{i,2},betaWE_out3] = rtcgpc(decomposedFlow{i}{2},betaWE_in,ed);
+    elseif i == 3
+        [outFlowDirTurn{i,2},betaWE_out4] = rtcgpc(decomposedFlow{i}{2},betaNS_in,ed);
+    end
+end
+%下面：x方向S车流与x反方向上L车流进行join
+for i = 1:4
+    iRev = getReverseDir(i);
+    [joinedFlow,eS,eL] = rtcjoin(decomposedFlow{i}{1},decomposedFlow{iRev}{3});
+    if i ==1
+        [outFlow betaNS_out1] = rtcgpc(joinedFlow, betaNS_in, ed);
+    elseif i ==4 
+        [outFlow betaNS_out2] = rtcgpc(joinedFlow, betaNS_in, ed); 
+    elseif i == 2
+        [outFlow betaWE_out1] = rtcgpc(joinedFlow, betaWE_in, ed); 
+    elseif i ==3
+        [outFlow betaWE_out2] = rtcgpc(joinedFlow, betaWE_in, ed); 
+    end
+    [outFlowDirTurn{i,1},outFlowDirTurn{iRev,3}] = rtcfork(outFlow,eS,eL); %将通过的车流还原回x向的直行和x反向的左转，并分别存储到相应的outFlowDirTurn
+end
+%下面进行资源重整，感应控制要求，一个方向没有车，将立即释放资源；
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+betaNS_out = rtcmin(rtcmin(betaNS_out1,betaNS_out2),rtcmin(betaNS_out3,betaNS_out4));
+betaWE_out = rtcmin(rtcmin(betaWE_out1,betaWE_out2),rtcmin(betaWE_out3,betaWE_out4));
+betaNS_in = rtcplus(betaNS_in,betaNS_out);
+betaWE_in = rtcplus(betaWE_in,betaWE_out);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%下面进行通过车流的整合；
+finalFlow_out = cell(4);
+%finalFlow_out{1} N向输出车流
+temp = rtcplus(outFlowDirTurn{2,2},outFlowDirTurn{3,3});
+finalFlow_out{1} = rtcmax(temp,outFlowDirTurn{4,1});
+%finalFlow_out{2} E向输出车流
+temp = rtcplus(outFlowDirTurn{4,2},outFlowDirTurn{1,3});
+finalFlow_out{2} = rtcmax(temp,outFlowDirTurn{3,1});
+%finalFlow_out{3} W向输出车流
+temp = rtcplus(outFlowDirTurn{1,2},outFlowDirTurn{4,3});
+finalFlow_out{3} = rtcmax(temp,outFlowDirTurn{2,1});
+%finalFlow_out{4} S向输出车流
+temp = rtcplus(outFlowDirTurn{3,2},outFlowDirTurn{2,3});
+finalFlow_out{4} = rtcmax(temp,outFlowDirTurn{1,1});
+end
+
+%{
+inflow = cell(4);
+rt = cell(4);
+for i = 1:4
+    inflow{i} = rtcpjd(10,0,0);
+    rt{i} = turnRate([1,2,3]);
+end
+calcuOutFlow(inflow,rt);
+%}
