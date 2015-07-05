@@ -1,0 +1,104 @@
+function mainEDF(row,col,turnMode,deltaMode) 
+ %turnMode = 1, 各路口均匀转向；2：各路口按2转向；3：各路口按3转向；0：各路口随机转向；
+ %deltaMode = 1,正常周期 = 10；2：高峰周期10*2；0 每个路口随机给周期 10 or 20；
+ global deltaPeriod; %街道增量基准；
+% row = row; %网络行数
+% col = col; %网络列数
+dir = 4;   %十字路口4个方向
+%接下来是为每个路口每个方向设置转向率，存到Cell矩阵turnRateCell{row,col,dir}中；
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+turnModeVector = setTurnModeVector(row,col,turnMode);%TurnModeVector; %i行j列路口4个方向的转向模式（1,2,3）
+%disp(turnModeVector);
+pTurnCell = setALLpTurn(turnModeVector);%为所有路口的所有方向设置好转向向量
+%{
+DISPLAY 
+for i = 1:row
+    for j = 1:col
+        for k = 1:dir
+            disp(pTurnCell{i,j,k});
+        end
+    end
+end
+%}
+turnRateCell = setALLturnRate(pTurnCell);%为网络中所有路口所有方向设置好转向率曲线
+%{
+DISPLAY 
+for i = 1:row
+    for j = 1:col
+        for k = 1:dir
+            disp(turnRateNEWSCell{i,j,k});
+        end
+    end
+end
+%}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%下面是为每个路口设置一个增量，存在Cell矩阵：deltaFlowCell（ij,k):i行j列路口k向上增量流曲线；
+ deltaPeriod = 10;
+ deltaFlowCell = setAlldeltaFlow(row,col,deltaPeriod,deltaMode);
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ inFlow = cell(row,col,dir);%每个路口上每个方向上的入流；
+ outFlow = cell(row,col,dir);%每个路口上每个方向流出的车流；
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %for循环将每个路口的车流增量先赋给进入车流；inFlow 先赋值；
+ for i = 1:row
+     for j = 1:col
+         for k = 1:dir
+             inFlow{i,j,k} = deltaFlowCell{i,j,k};
+         end
+     end
+ end
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %outFlow赋值，用到inFlow，形成一个迭代；
+ for i = 1:row
+     for j = 1:col
+         tin = cell(dir);
+         trate = cell(dir);
+         for k = 1:dir
+             tin{k} = inFlow{i,j,k};
+             trate{k} = turnRateCell{i,j,k};
+         end
+         temOut = EDFcalcuOutFlow(tin,trate);
+         for k = 1:dir
+            outFlow{i,j,k} = temOut{k};
+         end
+     end
+ end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+ % N向车流汇合：
+ for i = 2:row
+     for j = 1:col
+        inFlow{i,j,1} = rtcplus(inFlow{i,j,1},outFlow{i-1,j,4}); %k=1 为N，k=4为S； NEWS
+     end
+ end
+% E向车流汇合：
+ for i = 1:row
+     for j = 1:col-1
+        inFlow{i,j,2} = rtcplus(inFlow{i,j,2},outFlow{i,j+1,3}); %k=2 为E，k=3为W； NEWS
+     end
+ end         
+ % W向车流汇合：
+ for i = 1:row
+     for j = 2:col
+        inFlow{i,j,3} = rtcplus(inFlow{i,j,3},outFlow{i,j-1,2}); %k=3 为W，k=2为E； NEWS
+     end
+ end     
+ % S向车流汇合：
+ for i = 1:row-1
+     for j = 1:col
+        inFlow{i,j,4} = rtcplus(inFlow{i,j,4},outFlow{i+1,j,1}); %k=4 为S，k=1为N； NEWS
+     end
+ end     
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+n = 1;
+for i = 1:row
+    for j=1:col
+        for k = 1:dir
+            subplot(row*col,dir,n);
+            n = n+1;
+            rtcplot(inFlow{i,j,k}(1), 'r',inFlow{i,j,k}(2), 'g', outFlow{i,j,k}(1), 'b',outFlow{i,j,k}(2), 'k', 20);
+            %title('inFlow'+i+','+j+','+k+'(red); inFlow'+i+','+j+','+k+'(red); ');
+        end
+    end
+end
+end
