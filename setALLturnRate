@@ -1,0 +1,30 @@
+function [turnRateNEWSCell] = setALLturnRate(pTurnCell)
+%pTrunCell: 二维数组，pTurnCell{i,j} 第i行j列路口4个方向上的转型率数值
+%turnRateNEWSCell: 三维数组：第i行j列路口4个方向上的转型率数值
+[row,col,dir] = size(pTurnCell);
+temp = java_array('ch.ethz.rtc.kernel.Curve',row,col,dir);
+turnRateNEWSCell = cell(temp);
+for i = 1: row
+    for j = 1:col
+        for k = 1:dir
+           turnRateNEWSCell{i,j,k} = turnRate(pTurnCell{i,j,k});
+        end
+    end
+end
+end
+
+
+
+%{
+test code
+for i = 1:100
+    for j= 1:100
+       for k = 1: 4
+        a(i,j,k) = 1;
+    end
+end
+end
+p = cell(100,100);
+p = setALLpTurn(a);
+setALLturnRate(p)
+%}
