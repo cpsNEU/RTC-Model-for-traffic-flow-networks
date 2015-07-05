@@ -1,0 +1,18 @@
+function [eSRL] = turnRate(pTurn)
+%传参为3维向量：pTurn = [pS,pR,pL]
+%pTurn(1):路口上产生一辆直行车的最小时间间隔；
+%pTurn(2):路口上产生一辆右转弯车（turnRight）的最小时间间隔；
+%pTurn(3):路口上产生一辆左转弯行车（turnLeft）的最小时间间隔；
+%函数返回一个向量,eS，eR，eL为分解车流的比例曲线；
+temp = java_array('ch.ethz.rtc.kernel.Curve',3);%这样定义曲线数组；
+d = cell(temp);
+for i =1:3
+d{i} = rtcpjd(pTurn(i),0,0);
+end
+[tem,eS,eR,eL] = rtcjoin(d{1},d{2},d{3});
+eSRL = cell(temp);
+eSRL = {eS,eR,eL};
+end
+
+%测试：
+%[eSRL] = turnRate([1,2,3]); rtcplot(eSRL{1},'r',30);
