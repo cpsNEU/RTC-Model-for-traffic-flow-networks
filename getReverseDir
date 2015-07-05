@@ -1,0 +1,13 @@
+function [dirRev] = getReverseDir(dir)
+%输入：dir： 方向整形：NEWS
+%输出：dirRev: dir的反方向
+switch dir
+    case 1 % N->S
+        dirRev = 4;
+    case 4 % S->N
+        dirRev = 1;
+    case 2 % E->W
+        dirRev = 3;
+    case 3 % W->E
+        dirRev = 2;
+end
