@@ -1,0 +1,16 @@
+function [flowSRL] = decomposeFlow(inFlow,eSRL)%进入车流+增量，再分流成三股
+%曲线：inFlow:是进入路口的车流；
+%比例曲线：eS,eR,eL:由turnRate（）求得，对车流进行分流的比例曲线；
+%曲线向量：flow:  flowX：向前、左右分流后的车流；
+[flowS, flowR, flowL] = rtcfork(inFlow,eSRL{1},eSRL{2},eSRL{3});
+flowSRL = {flowS,flowR,flowL};
+%rtcplot(inFlow,'r',flowS,'g',flowR,'b',flowL,'k',30);
+end
+
+
+%测试：
+%{
+eSRL = cell(3);
+eSRL = turnRate([100,200,300]); 
+flow = decomposeFlow(rtcpjd(10,0,0),eSRL);
+%}
