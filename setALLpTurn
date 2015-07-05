@@ -1,0 +1,31 @@
+function [pTurnCell] =  setALLpTurn(pTurnModeVector)
+%传参：pTurnModeVector 3维数组， pTurnModeVector(i,j,4)：第i行j列个路口上4个方向上NEWS的转向模式；
+%返回：pTurnCell 是二维数组，pTurnCell{i,j}{4}：第i行j列个路口上4个方向上NEWS的转向率（如：[1，1，1]）；
+[row,col,dir] = size(pTurnModeVector);
+pTurnCell = cell(row,col,dir);
+for i = 1:row
+    for j = 1:col
+        for k = 1:dir
+        pTurnCell{i,j,k} = setpTurn(pTurnModeVector(i,j,k)); 
+    end
+end
+end
+
+
+
+
+        
+%{
+test code
+
+for i = 1:100
+    for j= 1:100
+       for k = 1: 4
+        a(i,j,k) = 1;
+    end
+end
+end
+disp(a);
+setALLpTurn(a);
+
+%}
