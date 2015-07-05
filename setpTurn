@@ -1,0 +1,16 @@
+function [pTurn] = setpTurn(mode)%根据传入模式mode设置转向率
+%返回：pTurn: 三维向量；
+if mode == 1
+    pTurn = [1,1,1];
+elseif mode == 2
+    pTurn = [1,2,2];
+else
+    pTurn = [1,2,3];
+end
+end
+
+%{
+test code
+
+pTurn = setpTurn(1);
+%}
