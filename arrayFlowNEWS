@@ -1,0 +1,7 @@
+function [flowNEWS] = arrayFlowNSWE(fN,fE,fW,fS)
+%曲线 fX: 从X方向进入十字路口的车流（不包括街道自生的车流）；
+%曲线向量 flowNSWE: 按照NSWE方向排好的车流向量；
+flowNEWS = [fN;fE;fW;fS];
+end
+
+% arrayFlowNSWE(rtcpjd(10,0,0),rtcpjd(10,0,0),rtcpjd(10,0,0),rtcpjd(10,0,0));
