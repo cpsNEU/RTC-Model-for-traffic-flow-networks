@@ -1,0 +1,21 @@
+function [deltaFlowCell] = setAlldeltaFlow(row,col,deltaPeriod,deltaMode)
+% row,col 行和列；
+%deltaPeriod: 基准周期；
+%deltaMode : 增量模式；
+deltaFlowCell = cell(row,col,4);
+for i = 1: row
+    for j = 1: col
+        for k = 1:4
+            switch deltaMode
+                case 1
+                    deltaFlowCell{i,j,k} = rtcpjd(deltaPeriod,0,0);
+                case 2
+                    deltaFlowCell{i,j,k} = rtcpjd(deltaPeriod*2,0,0);
+                case 0
+                    r = ceil(rand(1,1)*2);
+                    deltaFlowCell{i,j,k} = rtcpjd(deltaPeriod*r,0,0);
+            end
+        end
+    end
+end
+end
