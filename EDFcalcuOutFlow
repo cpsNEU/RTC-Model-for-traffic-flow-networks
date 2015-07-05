@@ -1,0 +1,87 @@
+function [finalFlow_out] = EDFcalcuOutFlow(inFlowNEWS,turnRateNEWS)
+%inFlowNEWS: 一个路口四个方向的车流曲线；
+%turnRateNEWS： 一个路口四个方向的转向率；
+%方框中是路口资源相关定义
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+beta_in = rtcfs(1);        %%%
+ed1 = 1;                   %%%
+ed2 = 1;                   %%%
+d1  = 4;                   %%%
+d2  = 4;                   %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+decomposedFlow = cell(4);  %4个方向分解后的流存入decomposedFlow中，方向顺序：NEWS；分流顺序：SRL（直行，右转，左转）；
+for i = 1:4
+    decomposedFlow{i} = decomposeFlow(inFlowNEWS{i},turnRateNEWS{i});    %disp(decomposedFlow{i});
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+outFlowDirTurn = cell(4,3); % 存储各路口每个方向上分解的车流流出去的量；
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%下面：x方向S车流与x反方向上L车流进行join；
+joinedFlow = cell(4); %存储x方向直行和x反向上左转的车流；
+eS = cell(4);
+eL = cell(4);
+for i = 1:4
+    iRev = getReverseDir(i);
+    [joinedFlow{i},eS{i},eL{i}] = rtcjoin(decomposedFlow{i}{1},decomposedFlow{iRev}{3});
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%双向车流里求最大，两个方向的最大车流再进行EDF调度
+NSflow = rtcmax(joinedFlow{1},joinedFlow{4});
+NSflow_R = rtcmax(decomposedFlow{1}{2},decomposedFlow{4}{2}); %右转车流
+NSflow = rtcmax(NSflow,NSflow_R); %两方向的直行和左转组合后，再和两方向的右转车流共同求最大；
+WEflow = rtcmax(joinedFlow{2},joinedFlow{3});
+WEflow_R = rtcmax(decomposedFlow{2}{2},decomposedFlow{3}{2}); %右转车流
+WEflow = rtcmax(WEflow,WEflow_R);  %两方向的直行和左转组合后，再和两方向的右转车流共同求最大；
+subplot(2,2,1); rtcplot(NSflow,'r',20);
+subplot(2,2,2); rtcplot(WEflow,'r',20);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%rtcedf(NSflow, ed1, d1, WEflow, ed2, d2, beta_in);
+a1_in = NSflow;
+a2_in = WEflow;
+[NSflow_out, del1, buf1,  WEflow_out, del2, buf2, beta_out] = rtcedf(a1_in, ed1, d1, a2_in, ed2, d2, beta_in);
+%[NSflow_out, del1, buf1,  WEflow_out, del2, buf2, beta_out] = rtcedf(NSflow, ed1, d1, WEflow, ed2, d2, beta_in);%用EDF对两方向车流进行调度；
+%下面获得实际通过的车流；
+outFlow_NS_SL = rtcmin(NSflow_out,joinedFlow{1}); %北向直行和南向左转通过的总车流
+outFlow_SS_NL = rtcmin(NSflow_out,joinedFlow{4}); %南向直行和北向左转通过的总车流
+outFlow_NR = rtcmin(NSflow_out,decomposedFlow{1}{2}); %北向右转车流
+outFlow_SR = rtcmin(NSflow_out,decomposedFlow{4}{2}); %南向右转车流
+outFlow_ES_WL = rtcmin(WEflow_out,joinedFlow{2}); %东向直行和西向左转通过的总车流
+outFlow_WS_EL = rtcmin(WEflow_out,joinedFlow{3}); %西向直行和东向左转通过的总车流
+outFlow_ER = rtcmin(WEflow_out,decomposedFlow{2}{2}); %东向右转车流
+outFlow_WR = rtcmin(WEflow_out,decomposedFlow{3}{2}); %西向右转车流
+%先赋值右转通过的车流
+outFlowDirTurn{1,2} = outFlow_NR;
+outFlowDirTurn{2,2} = outFlow_ER;
+outFlowDirTurn{3,2} = outFlow_WR;
+outFlowDirTurn{4,2} = outFlow_SR;
+%再fork出直行左转车流
+[outFlowDirTurn{1,1},outFlowDirTurn{4,3}] = rtcfork(outFlow_NS_SL,eS{1},eL{1});
+[outFlowDirTurn{4,1},outFlowDirTurn{1,3}] = rtcfork(outFlow_SS_NL,eS{4},eL{4});
+[outFlowDirTurn{2,1},outFlowDirTurn{3,3}] = rtcfork(outFlow_ES_WL,eS{2},eL{2});
+[outFlowDirTurn{3,1},outFlowDirTurn{2,3}] = rtcfork(outFlow_WS_EL,eS{3},eL{3});
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%下面进行通过车流的整合；
+finalFlow_out = cell(4);
+%finalFlow_out{1} N向输出车流
+temp = rtcplus(outFlowDirTurn{2,2},outFlowDirTurn{3,3});
+finalFlow_out{1} = rtcmax(temp,outFlowDirTurn{4,1});
+%finalFlow_out{2} E向输出车流
+temp = rtcplus(outFlowDirTurn{4,2},outFlowDirTurn{1,3});
+finalFlow_out{2} = rtcmax(temp,outFlowDirTurn{3,1});
+%finalFlow_out{3} W向输出车流
+temp = rtcplus(outFlowDirTurn{1,2},outFlowDirTurn{4,3});
+finalFlow_out{3} = rtcmax(temp,outFlowDirTurn{2,1});
+%finalFlow_out{4} S向输出车流
+temp = rtcplus(outFlowDirTurn{3,2},outFlowDirTurn{2,3});
+finalFlow_out{4} = rtcmax(temp,outFlowDirTurn{1,1});
+end
+
+%{
+inflow = cell(4);
+rt = cell(4);
+for i = 1:4
+    inflow{i} = rtcpjd(10,0,0);
+    rt{i} = turnRate([1,2,3]);
+end
+EDFcalcuOutFlow(inflow,rt);
+%}
